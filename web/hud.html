@@ -7,7 +7,7 @@
 <style>
 html,body{margin:0;height:100%;overflow:hidden;background:#1a1f26;font-family:Inter,system-ui,sans-serif;color:#E8EAED;font-variant-numeric:tabular-nums}
 body.overlay{background:transparent}
-.p{position:absolute;background:rgba(10,12,16,.8);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:14px 16px;box-sizing:border-box;transform-origin:top left;user-select:none;touch-action:none}
+.p{position:absolute;background:rgba(10,12,16,var(--o,.8));border:1px solid rgba(255,255,255,calc(var(--o,.8)*.125));border-radius:12px;padding:14px 16px;box-sizing:border-box;transform-origin:top left;user-select:none;touch-action:none}
 body.edit .p{cursor:move;outline:1px dashed rgba(255,255,255,.4)}
 body.edit .p.sel{outline:2px solid var(--c)}
 .l{font-size:12px;font-weight:600;letter-spacing:.12em;color:#9AA1AB;text-transform:uppercase;margin-bottom:6px}
@@ -47,6 +47,7 @@ body.overlay:not(.edit) #bar{display:none}
 <h2 id="dn">Panel anklicken</h2>
 <div id="ctl">
 <label>Größe <input type="range" id="sz" min="0.5" max="2" step="0.05" aria-label="Größe"></label>
+<label>Transparenz <input type="range" id="op" min="0" max="1" step="0.05" aria-label="Transparenz"></label>
 <label>Farbe <input type="color" id="co" aria-label="Farbe"></label>
 <label>Sichtbar <input type="checkbox" id="vi"></label>
 <button type="button" id="r1">Panel zurücksetzen</button>
@@ -55,6 +56,7 @@ body.overlay:not(.edit) #bar{display:none}
 <label>Profil <select id="pf"><option>Practice</option><option>Qualify</option><option>Race</option></select></label>
 <label>Auto je Session <input type="checkbox" id="au"></label>
 <label>Einheiten <select id="un"><option value="m">Metrisch</option><option value="i">Imperial</option></select></label>
+<label>Auto-Tanken (Boxeneingang) <input type="checkbox" id="af"></label>
 <label>iRating zeigen <input type="checkbox" id="ir"></label>
 <label>Karte spiegeln <input type="checkbox" id="mi"></label>
 <button type="button" id="rm">Karte neu aufzeichnen</button>
@@ -79,11 +81,12 @@ for(const k in NAMES){const d=document.createElement('div');d.className='p';d.da
 els.inp.innerHTML='<div class="l">Pedale</div><canvas id="cv" width="300" height="90"></canvas><div class="bars"><i><u id="bt" style="background:#3DDC84"></u></i><i><u id="bb" style="background:#FF4D4D"></u></i></div>';
 els.gf.innerHTML='<div class="l">G-Kräfte</div><div class="gf"><u id="gd"></u></div><div class="kv"><span>Quer / Längs</span><b id="gv"></b></div>';
 els.map.innerHTML='<div class="l">Streckenkarte</div><canvas id="mc" width="300" height="240"></canvas>';
-function layout(){for(const k in els){const c=cfg[k],e=els[k];e.style.left=c.x+'%';e.style.top=c.y+'%';e.style.transform=`scale(${c.s})`;e.style.setProperty('--c',c.c);e.style.display=(c.v||edit)?'':'none';e.style.opacity=c.v?1:.35;e.classList.toggle('sel',k===sel)}}
-function ctl(){$('#ctl').style.display=sel?'block':'none';$('#dn').textContent=sel?NAMES[sel]:'Panel anklicken';if(sel){const c=cfg[sel];$('#sz').value=c.s;$('#co').value=c.c;$('#vi').checked=!!c.v}}
+function layout(){for(const k in els){const c=cfg[k],e=els[k];e.style.left=c.x+'%';e.style.top=c.y+'%';e.style.transform=`scale(${c.s})`;e.style.setProperty('--c',c.c);e.style.setProperty('--o',c.o??.8);e.style.display=(c.v||edit)?'':'none';e.style.opacity=c.v?1:.35;e.classList.toggle('sel',k===sel)}}
+function ctl(){$('#ctl').style.display=sel?'block':'none';$('#dn').textContent=sel?NAMES[sel]:'Panel anklicken';if(sel){const c=cfg[sel];$('#sz').value=c.s;$('#op').value=1-(c.o??.8);$('#co').value=c.c;$('#vi').checked=!!c.v}}
 function setEdit(v){edit=v;try{window.hudHost&&hudHost.editChanged(v)}catch{}document.body.classList.toggle('edit',v);$('#eb').textContent=v?'Fertig (E)':'Bearbeiten (E)';if(!v)sel=null;layout();ctl()}
 $('#eb').onclick=()=>setEdit(!edit);addEventListener('keydown',e=>{if(e.key==='e'||e.key==='E')setEdit(!edit)});
 $('#sz').oninput=e=>{cfg[sel].s=+e.target.value;layout();save()};
+$('#op').oninput=e=>{cfg[sel].o=1-e.target.value;layout();save()};
 $('#co').oninput=e=>{cfg[sel].c=e.target.value;layout();save()};
 $('#vi').onchange=e=>{cfg[sel].v=e.target.checked?1:0;layout();save()};
 $('#r1').onclick=()=>{cfg[sel]=structuredClone(DEF[sel]);layout();ctl();save()};
@@ -93,6 +96,7 @@ function prof(n){S.active=n;cfg=S.p[n];sel=null;$('#pf').value=n;layout();ctl();
 $('#pf').value=S.active;$('#pf').onchange=e=>prof(e.target.value);
 $('#au').checked=!!S.auto;$('#au').onchange=e=>{S.auto=e.target.checked?1:0;save()};
 $('#un').value=S.units;$('#un').onchange=e=>{S.units=e.target.value;save()};
+$('#af').checked=!!S.autoFuel;$('#af').onchange=e=>{S.autoFuel=e.target.checked?1:0;save()};
 $('#ir').checked=!!S.ir;$('#ir').onchange=e=>{S.ir=e.target.checked?1:0;save()};
 $('#mi').checked=!!S.mirror;$('#mi').onchange=e=>{S.mirror=e.target.checked?1:0;save()};
 $('#rm').onclick=()=>{delete maps[curTrack];rec=null;try{localStorage.setItem('hudmaps',JSON.stringify(maps))}catch{}};
@@ -150,6 +154,24 @@ function drawAlert(t){
  const a=t.alerts||[];
  els.ovt.innerHTML=lab('Overtake-Alert')+(a.length?a.slice(0,2).map(x=>`<div class="fl${x.gap<3?' bl':''}" style="background:${esc(x.color)};font-size:18px;margin-top:4px">▲ ${esc(x.name)} ${esc(x.num)} · ${x.gap.toFixed(1)} s</div>`).join(''):'<div style="color:#9AA1AB;font-size:16px;padding:6px 0">Kein schnelleres Auto in der Nähe</div>');
 }
+let lastCalc=null,fmsg='',wasPit=false;
+function fuelCalc(t){
+ const avg=uses.length?uses.reduce((x,y)=>x+y)/uses.length:0,lt=t.last>0?t.last:(t.best>0?t.best:0);
+ let rest=null;
+ if(t.laps>0)rest=t.laps-t.lap+1;else if(t.timeRemain>0&&lt)rest=Math.ceil(t.timeRemain/lt)+1;
+ const tot=rest===null?null:rest+(S.extra||0);
+ let add=tot!==null&&avg?Math.max(0,tot*avg-t.fuel):null;
+ if(add!==null&&t.fuelMax)add=Math.min(add,Math.max(0,t.fuelMax-t.fuel));
+ return{avg,add}
+}
+function flash(m){fmsg=m;setTimeout(()=>{fmsg=''},4000)}
+function xl(d){S.extra=Math.max(0,Math.min(20,(S.extra||0)+d));save()}
+function sendFuel(){
+ if(!lastCalc||lastCalc.add===null){flash('Noch keine Berechnung möglich');return}
+ if(!ws||ws.readyState!==1){flash('Keine Verbindung zu iRacing');return}
+ ws.send(JSON.stringify({cmd:'fuel',l:lastCalc.add}));
+ flash(lastCalc.add>0?'Boxenstopp: +'+Math.ceil(lastCalc.add)+' L gesendet':'Tanken abgewählt')
+}
 const hist=[];let lf=null,lastLap=null,uses=[];
 function extra(t){
  curTrack=t.track||'';mapStep(t);drawMap(t);drawAlert(t);
@@ -165,10 +187,10 @@ function extra(t){
  $('#bt').style.height=t.throttle*100+'%';$('#bb').style.height=t.brake*100+'%';$('#bb').style.background=t.abs?A:R;
  $('#gd').style.transform=`translate(${t.latG*40}px,${-t.lonG*40}px)`;$('#gv').textContent=t.latG.toFixed(1)+' / '+t.lonG.toFixed(1)+' G';
  if(t.lap!==lastLap){if(lastLap!==null&&lf!==null&&lf-t.fuel>0){uses.push(lf-t.fuel);if(uses.length>5)uses.shift()}lastLap=t.lap;lf=t.fuel}
- const avg=uses.length?uses.reduce((x,y)=>x+y)/uses.length:0,need=t.laps>0&&avg?Math.max(0,(t.laps-t.lap+1)*avg-t.fuel):null;
- els.fuel.innerHTML=lab('Fuel-Rechner')+kv('Verbrauch / Runde',avg?(avg*U.f).toFixed(2)+' '+U.fu:'–')+kv('Reicht für',avg?(t.fuel/avg).toFixed(1)+' Runden':'–')+kv('Bis Ziel tanken',need===null?'–':(need*U.f).toFixed(1)+' '+U.fu,need>0?A:G);
+ const c=fuelCalc(t);lastCalc=c;
+ els.fuel.innerHTML=lab('Fuel-Rechner')+kv('Verbrauch / Runde',c.avg?(c.avg*U.f).toFixed(2)+' '+U.fu:'–')+kv('Reicht für',c.avg?(t.fuel/c.avg).toFixed(1)+' Runden':'–')+kv('Extra-Runden','+'+(S.extra||0))+kv('Tanken (Boxenstopp)',c.add===null?'–':(c.add*U.f).toFixed(1)+' '+U.fu,c.add>0?A:G)+`<div style="font-size:12px;color:#9AA1AB;margin-top:6px">${fmsg||'Strg+Alt+F: Tankmenge setzen · Strg+Alt+↑/↓: Extra-Runden'}</div>`;
 }
-function demo(s){const r=.5+.45*Math.sin(s/1.3);const D={rpm:r*12000,rpmMax:12000,gear:2+Math.floor(r*4),speed:80+r*140,delta:Math.sin(s/3)*.4,cur:s%100,last:102.69,best:102.104,lap:1+Math.floor(s/25),laps:20,fuel:max0(40-s*.06),throttle:r,track:'Demo',yaw:0,pct:(s/90)%1,cars:Array.from({length:8},(_,i)=>[((s/90)+i*.12)%1,i===0,i%3===0?'#FF5A5A':'#5AB0FF',false]),alerts:Math.floor(s/10)%2?[{name:'M. Keller',num:'#77',gap:2.4+Math.sin(s),color:'#FF5A5A'}]:[],brake:max0(Math.sin(s*1.7+2)),abs:false,latG:1.6*Math.sin(s*.9),lonG:.8*Math.sin(s*1.7),
+function demo(s){const r=.5+.45*Math.sin(s/1.3);const D={rpm:r*12000,rpmMax:12000,gear:2+Math.floor(r*4),speed:80+r*140,delta:Math.sin(s/3)*.4,cur:s%100,last:102.69,best:102.104,lap:1+Math.floor(s/25),laps:20,fuel:max0(40-s*.06),throttle:r,fuelMax:60,onPit:false,track:'Demo',yaw:0,pct:(s/90)%1,cars:Array.from({length:8},(_,i)=>[((s/90)+i*.12)%1,i===0,i%3===0?'#FF5A5A':'#5AB0FF',false]),alerts:Math.floor(s/10)%2?[{name:'M. Keller',num:'#77',gap:2.4+Math.sin(s),color:'#FF5A5A'}]:[],brake:max0(Math.sin(s*1.7+2)),abs:false,latG:1.6*Math.sin(s*.9),lonG:.8*Math.sin(s*1.7),
  tires:[{t:92,w:12},{t:101,w:14},{t:89,w:9},{t:95,w:10}],
  stand:[['P1','J. Weber','Leader',0],['P2','T. Rossi','+1.2',0],['P3','K. Aalto','+3.9',0],['P4','Du','+5.1',1],['P5','P. Nowak','+6.4',0]],
  rel:[['-1.8','J. Weber','#14',0],['-0.6','T. Rossi','#08',0],['0.0','Du','#27',1],['+0.9','K. Aalto','#52',0],['+2.3','P. Nowak','#33',0]]};D.stand.forEach((r,i)=>r.push(1800+i*430));D.rel.forEach((r,i)=>r.push(2100+i*380));return D}
@@ -177,7 +199,7 @@ let live=null,liveAt=0,ws;
 function connect(){try{ws=new WebSocket('ws://localhost:8765')}catch{return setTimeout(connect,3000)}
  ws.onmessage=e=>{live=JSON.parse(e.data);liveAt=Date.now()};ws.onclose=()=>setTimeout(connect,3000);ws.onerror=()=>ws.close()}
 connect();
-setInterval(()=>{const on=live&&Date.now()-liveAt<2000;$('#st').textContent=on?'● Live (iRacing)':'○ Demo-Daten';const d=on?live:demo(performance.now()/1000);if(on&&S.auto&&d.session&&S.p[d.session]&&d.session!==S.active)prof(d.session);render(d);extra(d)},50);
+setInterval(()=>{const on=live&&Date.now()-liveAt<2000;$('#st').textContent=on?'● Live (iRacing)':'○ Demo-Daten';const d=on?live:demo(performance.now()/1000);if(on&&S.auto&&d.session&&S.p[d.session]&&d.session!==S.active)prof(d.session);render(d);extra(d);if(on){if(d.onPit&&!wasPit&&S.autoFuel)sendFuel();wasPit=!!d.onPit}},50);
 if(location.search.includes('overlay')){document.body.classList.add('overlay');$('#ov').checked=true}
 layout();
 </script>
