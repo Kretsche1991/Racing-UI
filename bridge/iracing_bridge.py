@@ -1,6 +1,6 @@
 """iRacing -> HUD Bridge. Installation: pip install pyirsdk websockets
 Start (iRacing laeuft, danach hud.html oeffnen): python iracing_bridge.py"""
-import asyncio, json, irsdk, websockets
+import asyncio, json, math, irsdk, websockets
 
 ir, clients = irsdk.IRSDK(), set()
 
@@ -41,16 +41,33 @@ def snap():
     return {'rpm': ir['RPM'], 'rpmMax': di['DriverCarRedLine'], 'gear': ir['Gear'], 'speed': ir['Speed'] * 3.6,
             'delta': ir['LapDeltaToBestLap'], 'cur': ir['LapCurrentLapTime'], 'last': ir['LapLastLapTime'],
             'best': ir['LapBestLapTime'], 'lap': ir['Lap'], 'laps': total if total < 1000 else 0,
-            'fuel': ir['FuelLevel'], 'throttle': ir['Throttle'], 'brake': ir['Brake'],
+            'fuel': ir['FuelLevel'], 'fuelMax': di['DriverCarFuelMaxLtr'] * di['DriverCarMaxFuelPct'],
+            'timeRemain': ir['SessionTimeRemain'], 'onPit': bool(ir['OnPitRoad']), 'throttle': ir['Throttle'], 'brake': ir['Brake'],
             'abs': bool(ir['BrakeABSactive']), 'latG': ir['LatAccel'] / 9.81, 'lonG': ir['LongAccel'] / 9.81,
             'flags': ir['SessionFlags'], 'session': sess,
             'alerts': alerts, 'cars': cars_out, 'track': ir['WeekendInfo']['TrackName'], 'yaw': ir['Yaw'], 'pct': ir['LapDistPct'], 'tires': tires, 'stand': stand, 'rel': rel}
 
 
+def handle(m):
+    # Befehle vom HUD: Tankmenge im Boxenstopp-Menue setzen (offizielle iRacing-Pit-Befehle)
+    if not ir.is_connected:
+        return
+    if m.get('cmd') == 'fuel':
+        liters = float(m.get('l', 0))
+        if liters > 0:
+            ir.pit_command(irsdk.PitCommandMode.fuel, int(math.ceil(liters)))
+        else:
+            ir.pit_command(irsdk.PitCommandMode.clear_fuel)
+
+
 async def handler(ws):
     clients.add(ws)
     try:
-        await ws.wait_closed()
+        async for msg in ws:
+            try:
+                handle(json.loads(msg))
+            except Exception:
+                pass
     finally:
         clients.discard(ws)
 
