@@ -1,4 +1,3 @@
-yaml
 name: Installer bauen
 on:
   workflow_dispatch:
