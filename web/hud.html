@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>iRacing HUD</title>
+<style>
+html,body{margin:0;height:100%;overflow:hidden;background:#1a1f26;font-family:Inter,system-ui,sans-serif;color:#E8EAED;font-variant-numeric:tabular-nums}
+body.overlay{background:transparent}
+.p{position:absolute;background:rgba(10,12,16,.8);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:14px 16px;box-sizing:border-box;transform-origin:top left;user-select:none;touch-action:none}
+body.edit .p{cursor:move;outline:1px dashed rgba(255,255,255,.4)}
+body.edit .p.sel{outline:2px solid var(--c)}
+.l{font-size:12px;font-weight:600;letter-spacing:.12em;color:#9AA1AB;text-transform:uppercase;margin-bottom:6px}
+.r{display:flex;gap:12px;padding:4px 8px;border-radius:6px;font-size:16px}
+.r b{width:40px;font-weight:800}.r span{flex:1;font-weight:600}.r i{font-style:normal;color:#9AA1AB}
+.r.me{background:color-mix(in srgb,var(--c) 18%,transparent);color:var(--c)}.r.me i{color:var(--c)}
+.led{display:flex;gap:4px;margin-bottom:10px}.led u{flex:1;height:18px;border-radius:3px}
+.g3{display:flex;justify-content:space-between;align-items:flex-end}.g3>div{width:130px}
+.g3 b{font-size:28px}.g3 .sp{font-size:50px;font-weight:800;line-height:1}.g3 small,.t small{font-size:13px;color:#9AA1AB;display:block}
+.gear{font-size:110px;font-weight:800;line-height:.9;color:var(--c);text-align:center}
+.delta{font-size:56px;font-weight:800;line-height:1.1;margin-bottom:6px}
+.kv{display:flex;justify-content:space-between;font-size:18px;padding:3px 0}.kv span{color:#9AA1AB}.kv b{font-weight:600}
+.tg{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+.t{border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:6px 10px;background:rgba(255,255,255,.04)}.t b{font-size:24px;display:block}
+.fu{display:flex;justify-content:space-between;align-items:baseline;font-size:22px;font-weight:800}
+#bar{position:fixed;top:8px;left:50%;transform:translateX(-50%);display:flex;gap:10px;align-items:center;font-size:13px;opacity:.35;z-index:9;background:rgba(10,12,16,.8);padding:4px 10px;border-radius:20px}
+#bar:hover,body.edit #bar{opacity:1}
+button{font:inherit;color:#E8EAED;background:#2a313b;border:1px solid #444c57;border-radius:6px;padding:6px 10px;cursor:pointer}
+#dr{position:fixed;right:12px;top:48px;width:250px;background:rgba(10,12,16,.95);border:1px solid #444c57;border-radius:12px;padding:14px;display:none;z-index:9;font-size:14px}
+body.edit #dr{display:block}
+#dr h2{font-size:16px;margin:0 0 10px}#dr label{display:flex;justify-content:space-between;align-items:center;margin:10px 0}
+#dr input[type=range]{width:120px}#ctl{display:none}.hint{color:#9AA1AB;font-size:12px;margin:8px 0}
+canvas{display:block;width:100%;height:90px;background:rgba(255,255,255,.04);border-radius:6px}
+.bars{display:flex;gap:6px;height:60px;margin-top:8px}.bars i{flex:1;background:rgba(255,255,255,.08);border-radius:4px;position:relative;overflow:hidden}.bars u{position:absolute;left:0;right:0;bottom:0}
+.fl{font-size:22px;font-weight:800;text-align:center;padding:10px;border-radius:8px;color:#000}
+.gf{position:relative;width:170px;height:170px;margin:4px auto 8px;border-radius:50%;border:2px solid rgba(255,255,255,.2);background:radial-gradient(circle,transparent 48%,rgba(255,255,255,.12) 49%,transparent 51%)}.gf u{position:absolute;width:16px;height:16px;border-radius:50%;background:var(--c);margin:-8px;left:50%;top:50%}
+.r em{font-style:normal;font-size:13px;color:#9AA1AB;margin-left:6px}
+#mc{height:240px}
+html:has(body.overlay){background:transparent}
+body.overlay:not(.edit) #bar{display:none}
+@keyframes bl{50%{opacity:.35}}.bl{animation:bl .5s infinite}
+</style>
+</head>
+<body>
+<div id="bar"><span id="st"></span><button id="eb" type="button">Bearbeiten (E)</button></div>
+<aside id="dr">
+<h2 id="dn">Panel anklicken</h2>
+<div id="ctl">
+<label>Größe <input type="range" id="sz" min="0.5" max="2" step="0.05" aria-label="Größe"></label>
+<label>Farbe <input type="color" id="co" aria-label="Farbe"></label>
+<label>Sichtbar <input type="checkbox" id="vi"></label>
+<button type="button" id="r1">Panel zurücksetzen</button>
+</div>
+<p class="hint">Panel anklicken und ziehen, um es zu verschieben.</p>
+<label>Profil <select id="pf"><option>Practice</option><option>Qualify</option><option>Race</option></select></label>
+<label>Auto je Session <input type="checkbox" id="au"></label>
+<label>Einheiten <select id="un"><option value="m">Metrisch</option><option value="i">Imperial</option></select></label>
+<label>iRating zeigen <input type="checkbox" id="ir"></label>
+<label>Karte spiegeln <input type="checkbox" id="mi"></label>
+<button type="button" id="rm">Karte neu aufzeichnen</button>
+<label>Transparent (Overlay) <input type="checkbox" id="ov"></label>
+<button type="button" id="ra">Alles zurücksetzen</button>
+</aside>
+<div id="stage"></div>
+<script>
+const $=s=>document.querySelector(s),esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const G='#3DDC84',A='#FFB400',R='#FF4D4D';
+const NAMES={stand:'Platzierung',rel:'Relative',flag:'Flaggen',gap:'Abstand',ovt:'Overtake-Alert',inp:'Pedale',map:'Streckenkarte',rpm:'Drehzahl · Gang · Speed',lap:'Rundenzeiten',fuel:'Fuel-Rechner',gf:'G-Kräfte',tires:'Reifen · Sprit'};
+const W={stand:280,rel:280,flag:260,gap:260,ovt:340,inp:330,map:330,rpm:480,lap:310,fuel:300,gf:210,tires:310};
+const DEF={stand:{x:2,y:3,s:1,c:A,v:1},rel:{x:78,y:3,s:1,c:A,v:1},flag:{x:40,y:3,s:1,c:A,v:1},gap:{x:40,y:12,s:1,c:A,v:1},ovt:{x:38,y:20,s:1,c:A,v:1},inp:{x:2,y:22,s:1,c:A,v:1},map:{x:2,y:45,s:1,c:A,v:1},rpm:{x:34,y:74,s:1,c:A,v:1},lap:{x:2,y:72,s:1,c:A,v:1},fuel:{x:78,y:24,s:1,c:A,v:1},gf:{x:80,y:42,s:1,c:A,v:1},tires:{x:76,y:64,s:1,c:A,v:1}};
+let S;try{S=JSON.parse(localStorage.getItem('hudcfg2'))}catch{}
+const mk=()=>structuredClone(DEF);
+S=S||{units:'m',ir:1,auto:1,active:'Race',p:{Practice:mk(),Qualify:mk(),Race:mk()}};
+for(const n in S.p)for(const k in DEF)S.p[n][k]=S.p[n][k]||mk()[k];
+let cfg=S.p[S.active];
+const save=()=>{try{localStorage.setItem('hudcfg2',JSON.stringify(S))}catch{}};
+let edit=false,sel=null;const els={};
+for(const k in NAMES){const d=document.createElement('div');d.className='p';d.dataset.k=k;d.style.width=W[k]+'px';$('#stage').append(d);els[k]=d}
+els.inp.innerHTML='<div class="l">Pedale</div><canvas id="cv" width="300" height="90"></canvas><div class="bars"><i><u id="bt" style="background:#3DDC84"></u></i><i><u id="bb" style="background:#FF4D4D"></u></i></div>';
+els.gf.innerHTML='<div class="l">G-Kräfte</div><div class="gf"><u id="gd"></u></div><div class="kv"><span>Quer / Längs</span><b id="gv"></b></div>';
+els.map.innerHTML='<div class="l">Streckenkarte</div><canvas id="mc" width="300" height="240"></canvas>';
+function layout(){for(const k in els){const c=cfg[k],e=els[k];e.style.left=c.x+'%';e.style.top=c.y+'%';e.style.transform=`scale(${c.s})`;e.style.setProperty('--c',c.c);e.style.display=(c.v||edit)?'':'none';e.style.opacity=c.v?1:.35;e.classList.toggle('sel',k===sel)}}
+function ctl(){$('#ctl').style.display=sel?'block':'none';$('#dn').textContent=sel?NAMES[sel]:'Panel anklicken';if(sel){const c=cfg[sel];$('#sz').value=c.s;$('#co').value=c.c;$('#vi').checked=!!c.v}}
+function setEdit(v){edit=v;try{window.hudHost&&hudHost.editChanged(v)}catch{}document.body.classList.toggle('edit',v);$('#eb').textContent=v?'Fertig (E)':'Bearbeiten (E)';if(!v)sel=null;layout();ctl()}
+$('#eb').onclick=()=>setEdit(!edit);addEventListener('keydown',e=>{if(e.key==='e'||e.key==='E')setEdit(!edit)});
+$('#sz').oninput=e=>{cfg[sel].s=+e.target.value;layout();save()};
+$('#co').oninput=e=>{cfg[sel].c=e.target.value;layout();save()};
+$('#vi').onchange=e=>{cfg[sel].v=e.target.checked?1:0;layout();save()};
+$('#r1').onclick=()=>{cfg[sel]=structuredClone(DEF[sel]);layout();ctl();save()};
+$('#ra').onclick=()=>{cfg=S.p[S.active]=mk();layout();ctl();save()};
+$('#ov').onchange=e=>document.body.classList.toggle('overlay',e.target.checked);
+function prof(n){S.active=n;cfg=S.p[n];sel=null;$('#pf').value=n;layout();ctl();save()}
+$('#pf').value=S.active;$('#pf').onchange=e=>prof(e.target.value);
+$('#au').checked=!!S.auto;$('#au').onchange=e=>{S.auto=e.target.checked?1:0;save()};
+$('#un').value=S.units;$('#un').onchange=e=>{S.units=e.target.value;save()};
+$('#ir').checked=!!S.ir;$('#ir').onchange=e=>{S.ir=e.target.checked?1:0;save()};
+$('#mi').checked=!!S.mirror;$('#mi').onchange=e=>{S.mirror=e.target.checked?1:0;save()};
+$('#rm').onclick=()=>{delete maps[curTrack];rec=null;try{localStorage.setItem('hudmaps',JSON.stringify(maps))}catch{}};
+let curTrack='',drag=null;
+$('#stage').addEventListener('pointerdown',e=>{if(!edit)return;const p=e.target.closest('.p');if(!p)return;sel=p.dataset.k;const c=cfg[sel];drag={ox:e.clientX-c.x/100*innerWidth,oy:e.clientY-c.y/100*innerHeight};p.setPointerCapture(e.pointerId);layout();ctl()});
+addEventListener('pointermove',e=>{if(!drag)return;const c=cfg[sel];c.x=Math.max(0,Math.min(98,(e.clientX-drag.ox)/innerWidth*100));c.y=Math.max(0,Math.min(98,(e.clientY-drag.oy)/innerHeight*100));layout()});
+addEventListener('pointerup',()=>{if(drag){drag=null;save()}});
+
+const fmt=s=>{if(!(s>0))return '–';const m=Math.floor(s/60);return m+':'+(s%60).toFixed(3).padStart(6,'0')};
+const lab=t=>`<div class="l">${t}</div>`;
+const kv=(a,b,c)=>`<div class="kv"><span>${a}</span><b${c?` style="color:${c}"`:''}>${b}</b></div>`;
+const ik=v=>S.ir&&v?`<em>${v>=1000?(v/1000).toFixed(1)+'k':v}</em>`:'';
+const rows=a=>a.map(r=>`<div class="r${r[3]?' me':''}"><b>${esc(r[0])}</b><span>${esc(r[1])}${ik(r[4])}</span><i>${esc(r[2])}</i></div>`).join('');
+const tc=t=>t<85?'#5AB0FF':t<=100?G:t<=110?A:R;
+function render(t){
+ const U=S.units==='i'?{v:.621371,vu:'mph',f:.264172,fu:'gal',t:x=>x*9/5+32}:{v:1,vu:'km/h',f:1,fu:'L',t:x=>x};
+ els.stand.innerHTML=lab('Platzierung')+rows(t.stand);
+ els.rel.innerHTML=lab('Relative')+rows(t.rel);
+ const n=20,lit=Math.round(Math.min(1,t.rpm/t.rpmMax)*n);let seg='';
+ for(let i=0;i<n;i++)seg+=`<u style="background:${i<10?G:i<14?A:R};opacity:${i<lit?1:.22}"></u>`;
+ els.rpm.innerHTML=`<div class="led">${seg}</div><div class="g3"><div><b>${Math.round(t.rpm)}</b><small>U/min</small></div><div class="gear">${t.gear>0?t.gear:t.gear<0?'R':'N'}</div><div style="text-align:right"><span class="sp">${Math.round(t.speed*U.v)}</span><small>${U.vu}</small></div></div>`;
+ const d=t.delta||0;
+ els.lap.innerHTML=lab('Delta zur besten Runde')+`<div class="delta" style="color:${d<=0?G:R}">${d<=0?'−':'+'}${Math.abs(d).toFixed(3)}</div>`+kv('Aktuell',fmt(t.cur))+kv('Letzte',fmt(t.last))+kv('Beste',fmt(t.best),G)+kv('Runde',t.lap+(t.laps>0?' / '+t.laps:''));
+ els.tires.innerHTML=lab('Reifen · Temperatur')+'<div class="tg">'+t.tires.map((x,i)=>`<div class="t"><small>${['VL','VR','HL','HR'][i]}</small><b style="color:${tc(x.t)}">${Math.round(U.t(x.t))}°</b><small>Verschleiß ${Math.round(x.w)} %</small></div>`).join('')+`</div><div class="fu"><span class="l" style="margin:0">Sprit</span><span>${(t.fuel*U.f).toFixed(1)} ${U.fu}</span></div>`;
+}
+const maps=(()=>{try{return JSON.parse(localStorage.getItem('hudmaps'))||{}}catch{return{}}})();
+maps.Demo=Array.from({length:400},(_,i)=>{const a=i/400*6.2832;return[Math.cos(a)*1.6+Math.cos(2*a)*.3,Math.sin(a)+Math.sin(3*a)*.15]});
+let rec=null;
+function mapStep(t){
+ if(!t.track||maps[t.track]||t.speed<10)return;
+ const now=Date.now();
+ if(!rec||rec.tr!==t.track)rec={tr:t.track,p:Array(400).fill(null),n:0,x:0,y:0,at:now,b0:null};
+ const dt=(now-rec.at)/1000;rec.at=now;
+ rec.x+=t.speed/3.6*dt*Math.sin(t.yaw);rec.y+=t.speed/3.6*dt*Math.cos(t.yaw);
+ const b=Math.floor(t.pct*400)%400;
+ if(rec.b0===null)rec.b0=b;
+ if(!rec.p[b]){rec.p[b]=[rec.x,rec.y];rec.n++}
+ else if(rec.n>380&&b===rec.b0){
+  const dx=rec.x-rec.p[rec.b0][0],dy=rec.y-rec.p[rec.b0][1],out=[];let last=rec.p[rec.b0];
+  for(let k=0;k<400;k++){const i=(rec.b0+k)%400;last=rec.p[i]||last;out[i]=[last[0]-dx*k/400,last[1]-dy*k/400]}
+  maps[t.track]=out;try{localStorage.setItem('hudmaps',JSON.stringify(maps))}catch{}rec=null}
+}
+function drawMap(t){
+ const g=$('#mc').getContext('2d'),mp=maps[t.track];g.clearRect(0,0,300,240);
+ if(!mp){g.fillStyle='#9AA1AB';g.font='14px sans-serif';g.fillText(rec?'Zeichne Karte … '+Math.round(rec.n/4)+' %':'Karte entsteht in der ersten Runde',12,120);return}
+ const X=mp.map(q=>S.mirror?-q[0]:q[0]),Y=mp.map(q=>-q[1]),x0=Math.min(...X),x1=Math.max(...X),y0=Math.min(...Y),y1=Math.max(...Y),k=Math.min(276/((x1-x0)||1),216/((y1-y0)||1));
+ const P=i=>[12+(276-(x1-x0)*k)/2+(X[i]-x0)*k,12+(216-(y1-y0)*k)/2+(Y[i]-y0)*k];
+ g.strokeStyle='#5b6470';g.lineWidth=5;g.lineJoin='round';g.beginPath();
+ for(let i=0;i<400;i++){const q=P(i);i?g.lineTo(q[0],q[1]):g.moveTo(q[0],q[1])}g.closePath();g.stroke();
+ const dot=(c,r,col)=>{const q=P(Math.floor(c[0]*400)%400);g.fillStyle=col;g.beginPath();g.arc(q[0],q[1],r,0,7);g.fill()};
+ (t.cars||[]).filter(c=>!c[1]).forEach(c=>dot(c,4,c[3]?'#666':c[2]));
+ (t.cars||[]).filter(c=>c[1]).forEach(c=>dot(c,7,cfg.map.c));
+}
+function drawAlert(t){
+ const a=t.alerts||[];
+ els.ovt.innerHTML=lab('Overtake-Alert')+(a.length?a.slice(0,2).map(x=>`<div class="fl${x.gap<3?' bl':''}" style="background:${esc(x.color)};font-size:18px;margin-top:4px">▲ ${esc(x.name)} ${esc(x.num)} · ${x.gap.toFixed(1)} s</div>`).join(''):'<div style="color:#9AA1AB;font-size:16px;padding:6px 0">Kein schnelleres Auto in der Nähe</div>');
+}
+const hist=[];let lf=null,lastLap=null,uses=[];
+function extra(t){
+ curTrack=t.track||'';mapStep(t);drawMap(t);drawAlert(t);
+ const U=S.units==='i'?{f:.264172,fu:'gal'}:{f:1,fu:'L'};
+ const f=t.flags??4;let fl=['–','#555'];
+ if(f&0x10)fl=['Rot','#FF4D4D'];else if(f&1)fl=['Ziel','#fff'];else if(f&0xC108)fl=['Gelb','#FFD400'];else if(f&0x20)fl=['Blau','#4DA3FF'];else if(f&2)fl=['Weiß','#fff'];else if(f&0x404)fl=['Grün',G];
+ els.flag.innerHTML=`<div class="fl" style="background:${fl[1]}">${fl[0]}</div>`;
+ const i=t.rel.findIndex(r=>r[3]),a=t.rel[i-1],b=t.rel[i+1];
+ els.gap.innerHTML=lab('Abstand')+kv('Vorne',a?esc(a[0]).replace('-','')+' s':'–')+kv('Hinten',b?esc(b[0]).replace('+','')+' s':'–');
+ hist.push([t.throttle,t.brake]);if(hist.length>300)hist.shift();
+ const g=$('#cv').getContext('2d');g.clearRect(0,0,300,90);
+ [[0,G],[1,R]].forEach(([k,c])=>{g.strokeStyle=c;g.lineWidth=2;g.beginPath();hist.forEach((q,x)=>{const y=88-q[k]*86;x?g.lineTo(x,y):g.moveTo(x,y)});g.stroke()});
+ $('#bt').style.height=t.throttle*100+'%';$('#bb').style.height=t.brake*100+'%';$('#bb').style.background=t.abs?A:R;
+ $('#gd').style.transform=`translate(${t.latG*40}px,${-t.lonG*40}px)`;$('#gv').textContent=t.latG.toFixed(1)+' / '+t.lonG.toFixed(1)+' G';
+ if(t.lap!==lastLap){if(lastLap!==null&&lf!==null&&lf-t.fuel>0){uses.push(lf-t.fuel);if(uses.length>5)uses.shift()}lastLap=t.lap;lf=t.fuel}
+ const avg=uses.length?uses.reduce((x,y)=>x+y)/uses.length:0,need=t.laps>0&&avg?Math.max(0,(t.laps-t.lap+1)*avg-t.fuel):null;
+ els.fuel.innerHTML=lab('Fuel-Rechner')+kv('Verbrauch / Runde',avg?(avg*U.f).toFixed(2)+' '+U.fu:'–')+kv('Reicht für',avg?(t.fuel/avg).toFixed(1)+' Runden':'–')+kv('Bis Ziel tanken',need===null?'–':(need*U.f).toFixed(1)+' '+U.fu,need>0?A:G);
+}
+function demo(s){const r=.5+.45*Math.sin(s/1.3);const D={rpm:r*12000,rpmMax:12000,gear:2+Math.floor(r*4),speed:80+r*140,delta:Math.sin(s/3)*.4,cur:s%100,last:102.69,best:102.104,lap:1+Math.floor(s/25),laps:20,fuel:max0(40-s*.06),throttle:r,track:'Demo',yaw:0,pct:(s/90)%1,cars:Array.from({length:8},(_,i)=>[((s/90)+i*.12)%1,i===0,i%3===0?'#FF5A5A':'#5AB0FF',false]),alerts:Math.floor(s/10)%2?[{name:'M. Keller',num:'#77',gap:2.4+Math.sin(s),color:'#FF5A5A'}]:[],brake:max0(Math.sin(s*1.7+2)),abs:false,latG:1.6*Math.sin(s*.9),lonG:.8*Math.sin(s*1.7),
+ tires:[{t:92,w:12},{t:101,w:14},{t:89,w:9},{t:95,w:10}],
+ stand:[['P1','J. Weber','Leader',0],['P2','T. Rossi','+1.2',0],['P3','K. Aalto','+3.9',0],['P4','Du','+5.1',1],['P5','P. Nowak','+6.4',0]],
+ rel:[['-1.8','J. Weber','#14',0],['-0.6','T. Rossi','#08',0],['0.0','Du','#27',1],['+0.9','K. Aalto','#52',0],['+2.3','P. Nowak','#33',0]]};D.stand.forEach((r,i)=>r.push(1800+i*430));D.rel.forEach((r,i)=>r.push(2100+i*380));return D}
+const max0=v=>Math.max(0,v);
+let live=null,liveAt=0,ws;
+function connect(){try{ws=new WebSocket('ws://localhost:8765')}catch{return setTimeout(connect,3000)}
+ ws.onmessage=e=>{live=JSON.parse(e.data);liveAt=Date.now()};ws.onclose=()=>setTimeout(connect,3000);ws.onerror=()=>ws.close()}
+connect();
+setInterval(()=>{const on=live&&Date.now()-liveAt<2000;$('#st').textContent=on?'● Live (iRacing)':'○ Demo-Daten';const d=on?live:demo(performance.now()/1000);if(on&&S.auto&&d.session&&S.p[d.session]&&d.session!==S.active)prof(d.session);render(d);extra(d)},50);
+if(location.search.includes('overlay')){document.body.classList.add('overlay');$('#ov').checked=true}
+layout();
+</script>
+</body>
+</html>
