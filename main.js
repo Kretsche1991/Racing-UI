@@ -33,6 +33,10 @@ app.whenReady().then(() => {
   const toggle = () => win.webContents.executeJavaScript('setEdit(!edit)');
   globalShortcut.register('Control+Alt+E', toggle);
   globalShortcut.register('Control+Alt+Q', () => app.quit());
+  const js = c => win.webContents.executeJavaScript(c);
+  globalShortcut.register('Control+Alt+Up', () => js('xl(1)'));
+  globalShortcut.register('Control+Alt+Down', () => js('xl(-1)'));
+  globalShortcut.register('Control+Alt+F', () => js('sendFuel()'));
 
   tray = new Tray(nativeImage.createFromPath(path.join(__dirname, 'build', 'icon.png')).resize({ width: 16, height: 16 }));
   tray.setToolTip('iRacing HUD (Strg+Alt+E: Bearbeiten)');
