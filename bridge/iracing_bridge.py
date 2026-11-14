@@ -85,4 +85,7 @@ async def main():
 
 
 if __name__ == '__main__':
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except OSError:
+        pass  # Port belegt: ein anderer Bridge-Prozess laeuft bereits
