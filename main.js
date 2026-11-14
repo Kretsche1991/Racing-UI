@@ -1,14 +1,21 @@
 const { app, BrowserWindow, globalShortcut, screen, Tray, Menu, nativeImage, ipcMain } = require('electron');
 const path = require('path');
-const { spawn } = require('child_process');
+const { spawn, execSync } = require('child_process');
 
 let win, bridge, tray;
-if (!app.requestSingleInstanceLock()) app.quit();
+const gotLock = app.requestSingleInstanceLock();
+if (!gotLock) app.quit();
 
 function startBridge() {
   if (!app.isPackaged) return; // in der Entwicklung: python bridge/iracing_bridge.py selbst starten
+  killBridge(); // Reste eines frueheren Starts beenden, sonst ist Port 8765 belegt
   bridge = spawn(path.join(process.resourcesPath, 'iracing_bridge.exe'), [], { windowsHide: true });
   bridge.on('error', () => {});
+}
+
+function killBridge() {
+  try { execSync('taskkill /F /T /IM iracing_bridge.exe', { stdio: 'ignore', windowsHide: true }); } catch {}
+  bridge = null;
 }
 
 function applyEditing(v) {
@@ -18,6 +25,7 @@ function applyEditing(v) {
 }
 
 app.whenReady().then(() => {
+  if (!gotLock) return;
   startBridge();
   const { x, y, width, height } = screen.getPrimaryDisplay().bounds;
   win = new BrowserWindow({
@@ -46,4 +54,4 @@ app.whenReady().then(() => {
   ]));
 });
 
-app.on('will-quit', () => { globalShortcut.unregisterAll(); if (bridge) bridge.kill(); });
+app.on('will-quit', () => { globalShortcut.unregisterAll(); if (app.isPackaged) killBridge(); });
