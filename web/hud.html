@@ -61,13 +61,18 @@ body.overlay:not(.edit) #bar{display:none}
 <label>iRating zeigen <input type="checkbox" id="ir"></label>
 <label>Karte spiegeln <input type="checkbox" id="mi"></label>
 <button type="button" id="rm">Karte neu aufzeichnen</button>
+<label>Nur im Auto anzeigen <input type="checkbox" id="hi"></label>
+<button type="button" id="ex">Layout exportieren</button>
+<label>Layout importieren <input type="file" id="im" accept=".json"></label>
 <label>Transparent (Overlay) <input type="checkbox" id="ov"></label>
 <button type="button" id="ra">Alles zurücksetzen</button>
+<p class="hint" id="hk"></p><pre class="hint" id="dg" style="white-space:pre-wrap;margin:6px 0 0"></pre>
 </aside>
 <div id="stage"></div>
 <script>
 const $=s=>document.querySelector(s),esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 const G='#3DDC84',A='#FFB400',R='#FF4D4D';
+const TOK=new URLSearchParams(location.search).get('tok')||'',OVL=location.search.includes('overlay');
 const NAMES={stand:'Platzierung',rel:'Relative',flag:'Flaggen',gap:'Abstand',ovt:'Overtake-Alert',inp:'Pedale',map:'Streckenkarte',rpm:'Drehzahl · Gang · Speed',lap:'Rundenzeiten',fuel:'Fuel-Rechner',gf:'G-Kräfte',tires:'Reifen · Sprit'};
 const W={stand:280,rel:280,flag:260,gap:260,ovt:340,inp:330,map:330,rpm:480,lap:310,fuel:300,gf:210,tires:310};
 const DEF={stand:{x:2,y:3,s:1,c:A,v:1},rel:{x:78,y:3,s:1,c:A,v:1},flag:{x:40,y:3,s:1,c:A,v:1},gap:{x:40,y:12,s:1,c:A,v:1},ovt:{x:38,y:20,s:1,c:A,v:1},inp:{x:2,y:22,s:1,c:A,v:1},map:{x:2,y:45,s:1,c:A,v:1},rpm:{x:34,y:74,s:1,c:A,v:1},lap:{x:2,y:72,s:1,c:A,v:1},fuel:{x:78,y:24,s:1,c:A,v:1},gf:{x:80,y:42,s:1,c:A,v:1},tires:{x:76,y:64,s:1,c:A,v:1}};
@@ -80,7 +85,7 @@ const mkv=(bg,fg,mut,bd,bda,rad,ff,sh,extra)=>Object.assign({'--bg':bg,'--fg':fg
 const THEMES={
  standard:{acc:'#FFB400',o:.8,mut:'#9AA1AB',line:'#5b6470',v:mkv('10,12,16','#E8EAED','#9AA1AB','255,255,255','.125','12px','inherit','none')},
  carbon:{acc:'#E10600',o:.88,mut:'#A3A3A8',line:'#6a6a70',v:mkv('24,24,27','#F2F2F2','#A3A3A8','225,6,0','.6','4px','inherit','none',{'--bi':'repeating-linear-gradient(45deg,rgba(255,255,255,.035) 0 2px,transparent 2px 4px)'})},
- glas:{acc:'#7DD3FC',o:.2,mut:'#D5E3EE',line:'#9fb4c4',v:mkv('210,230,255','#FFFFFF','#D5E3EE','255,255,255','2.2','16px','inherit','0 4px 24px rgba(0,0,0,.25)',{'--ts':'0 1px 3px rgba(0,0,0,.85)','--bf':'blur(12px)'})},
+ glas:{acc:'#7DD3FC',o:.2,mut:'#D5E3EE',line:'#9fb4c4',v:mkv('210,230,255','#FFFFFF','#D5E3EE','255,255,255','2.2','16px','inherit','0 4px 24px rgba(0,0,0,.25)',{'--ts':'0 1px 3px rgba(0,0,0,.85)'})},
  retro:{acc:'#FFB000',o:.88,mut:'#A87400',line:'#7a5400',v:mkv('14,9,0','#FFB000','#A87400','255,176,0','.55','2px','ui-monospace,Consolas,monospace','none')},
  neon:{acc:'#00E5FF',o:.8,mut:'#7FA8C9',line:'#2a6f8a',v:mkv('5,8,22','#E6F7FF','#7FA8C9','0,229,255','.9','10px','inherit','0 0 14px rgba(0,229,255,.35)')},
  kontrast:{acc:'#FFFF00',o:1,mut:'#D6D6D6',line:'#bbbbbb',v:mkv('0,0,0','#FFFFFF','#D6D6D6','255,255,255','1','6px','inherit','none')}
@@ -111,6 +116,9 @@ $('#pf').value=S.active;$('#pf').onchange=e=>prof(e.target.value);
 $('#au').checked=!!S.auto;$('#au').onchange=e=>{S.auto=e.target.checked?1:0;save()};
 $('#un').value=S.units;$('#un').onchange=e=>{S.units=e.target.value;save()};
 $('#af').checked=!!S.autoFuel;$('#af').onchange=e=>{S.autoFuel=e.target.checked?1:0;save()};
+$('#hi').checked=S.hideIdle!==0;$('#hi').onchange=e=>{S.hideIdle=e.target.checked?1:0;save()};
+$('#ex').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(S)],{type:'application/json'}));a.download='iracing-hud-layout.json';a.click()};
+$('#im').onchange=async e=>{try{const j=JSON.parse(await e.target.files[0].text());if(j&&j.p&&j.active){S=j;save();location.reload()}}catch{}};
 $('#ir').checked=!!S.ir;$('#ir').onchange=e=>{S.ir=e.target.checked?1:0;save()};
 $('#mi').checked=!!S.mirror;$('#mi').onchange=e=>{S.mirror=e.target.checked?1:0;save()};
 $('#rm').onclick=()=>{delete maps[curTrack];rec=null;try{localStorage.setItem('hudmaps',JSON.stringify(maps))}catch{}};
@@ -125,37 +133,45 @@ const kv=(a,b,c)=>`<div class="kv"><span>${a}</span><b${c?` style="color:${c}"`:
 const ik=v=>S.ir&&v?`<em>${v>=1000?(v/1000).toFixed(1)+'k':v}</em>`:'';
 const rows=a=>a.map(r=>`<div class="r${r[3]?' me':''}"><b>${esc(r[0])}</b><span>${esc(r[1])}${ik(r[4])}</span><i>${esc(r[2])}</i></div>`).join('');
 const tc=t=>t<85?'#5AB0FF':t<=100?G:t<=110?A:R;
-function render(t){
+function render(t,slow,mid){
  const U=S.units==='i'?{v:.621371,vu:'mph',f:.264172,fu:'gal',t:x=>x*9/5+32}:{v:1,vu:'km/h',f:1,fu:'L',t:x=>x};
- els.stand.innerHTML=lab('Platzierung')+rows(t.stand);
- els.rel.innerHTML=lab('Relative')+rows(t.rel);
+ if(slow)els.stand.innerHTML=lab('Platzierung')+rows(t.stand);
+ if(slow)els.rel.innerHTML=lab('Relative')+rows(t.rel);
  const n=20,lit=Math.round(Math.min(1,t.rpm/t.rpmMax)*n);let seg='';
  for(let i=0;i<n;i++)seg+=`<u style="background:${i<10?G:i<14?A:R};opacity:${i<lit?1:.22}"></u>`;
  els.rpm.innerHTML=`<div class="led">${seg}</div><div class="g3"><div><b>${Math.round(t.rpm)}</b><small>U/min</small></div><div class="gear">${t.gear>0?t.gear:t.gear<0?'R':'N'}</div><div style="text-align:right"><span class="sp">${Math.round(t.speed*U.v)}</span><small>${U.vu}</small></div></div>`;
- const d=t.delta||0;
- els.lap.innerHTML=lab('Delta zur besten Runde')+`<div class="delta" style="color:${d<=0?G:R}">${d<=0?'−':'+'}${Math.abs(d).toFixed(3)}</div>`+kv('Aktuell',fmt(t.cur))+kv('Letzte',fmt(t.last))+kv('Beste',fmt(t.best),G)+kv('Runde',t.lap+(t.laps>0?' / '+t.laps:''));
- els.tires.innerHTML=lab('Reifen · Temperatur')+'<div class="tg">'+t.tires.map((x,i)=>`<div class="t"><small>${['VL','VR','HL','HR'][i]}</small><b style="color:${tc(x.t)}">${Math.round(U.t(x.t))}°</b><small>Verschleiß ${Math.round(x.w)} %</small></div>`).join('')+`</div><div class="fu"><span class="l" style="margin:0">Sprit</span><span>${(t.fuel*U.f).toFixed(1)} ${U.fu}</span></div>`;
+ const d=t.delta||0,dok=t.deltaOk!==false;
+ if(mid)els.lap.innerHTML=lab('Delta zur besten Runde')+`<div class="delta" style="color:${!dok?'var(--mut)':d<=0?G:R}">${dok?(d<=0?'−':'+')+Math.abs(d).toFixed(3):'–'}</div>`+kv('Aktuell',fmt(t.cur))+kv('Letzte',fmt(t.last))+kv('Beste',fmt(t.best),G)+kv('Runde',t.lap+(t.laps>0?' / '+t.laps:''));
+ if(slow)els.tires.innerHTML=lab('Reifen · Temperatur')+'<div class="tg">'+t.tires.map((x,i)=>`<div class="t"><small>${['VL','VR','HL','HR'][i]}</small><b style="color:${tc(x.t)}">${Math.round(U.t(x.t))}°</b><small>Verschleiß ${Math.round(x.w)} %</small></div>`).join('')+`</div><div class="fu"><span class="l" style="margin:0">Sprit</span><span>${(t.fuel*U.f).toFixed(1)} ${U.fu}</span></div>`;
 }
 const maps=(()=>{try{return JSON.parse(localStorage.getItem('hudmaps'))||{}}catch{return{}}})();
 maps.Demo=Array.from({length:400},(_,i)=>{const a=i/400*6.2832;return[Math.cos(a)*1.6+Math.cos(2*a)*.3,Math.sin(a)+Math.sin(3*a)*.15]});
 let rec=null;
 function mapStep(t){
- if(!t.track||maps[t.track]||t.speed<10)return;
  const now=Date.now();
- if(!rec||rec.tr!==t.track)rec={tr:t.track,p:Array(400).fill(null),n:0,x:0,y:0,at:now,b0:null};
- const dt=(now-rec.at)/1000;rec.at=now;
+ if(!t.track||maps[t.track])return;
+ if(!rec||rec.tr!==t.track)rec={tr:t.track,s:[],x:0,y:0,at:now,p0:null,pp:0,prog:0};
+ const dt=Math.min(.25,(now-rec.at)/1000);rec.at=now;
+ if(t.speed<10||t.onPit)return;
  rec.x+=t.speed/3.6*dt*Math.sin(t.yaw);rec.y+=t.speed/3.6*dt*Math.cos(t.yaw);
- const b=Math.floor(t.pct*400)%400;
- if(rec.b0===null)rec.b0=b;
- if(!rec.p[b]){rec.p[b]=[rec.x,rec.y];rec.n++}
- else if(rec.n>380&&b===rec.b0){
-  const dx=rec.x-rec.p[rec.b0][0],dy=rec.y-rec.p[rec.b0][1],out=[];let last=rec.p[rec.b0];
-  for(let k=0;k<400;k++){const i=(rec.b0+k)%400;last=rec.p[i]||last;out[i]=[last[0]-dx*k/400,last[1]-dy*k/400]}
+ if(rec.p0===null){rec.p0=t.pct;rec.pp=t.pct}
+ let dp=t.pct-rec.pp;if(dp<-.5)dp+=1;else if(dp>.5)dp-=1;
+ rec.pp=t.pct;
+ rec.prog+=Math.max(0,dp);
+ if(!rec.s.length||rec.prog-rec.s[rec.s.length-1][0]>.0005)rec.s.push([rec.prog,rec.x,rec.y]);
+ if(rec.prog>=1&&rec.s.length>50){
+  const s=rec.s,xe=s[s.length-1][1],ye=s[s.length-1][2],out=[];
+  for(let i=0;i<400;i++){
+   const pr=((i/400-rec.p0)%1+1)%1;let j=0;
+   while(j<s.length-2&&s[j+1][0]<=pr)j++;
+   const a=s[j],b=s[j+1],f=b[0]>a[0]?Math.min(1,Math.max(0,(pr-a[0])/(b[0]-a[0]))):0;
+   out[i]=[a[1]+(b[1]-a[1])*f-pr*xe,a[2]+(b[2]-a[2])*f-pr*ye];
+  }
   maps[t.track]=out;try{localStorage.setItem('hudmaps',JSON.stringify(maps))}catch{}rec=null}
 }
 function drawMap(t){
  const g=$('#mc').getContext('2d'),mp=maps[t.track];g.clearRect(0,0,300,240);
- if(!mp){g.fillStyle=TH.mut;g.font='14px sans-serif';g.fillText(rec?'Zeichne Karte … '+Math.round(rec.n/4)+' %':'Karte entsteht in der ersten Runde',12,120);return}
+ if(!mp){g.fillStyle=TH.mut;g.font='14px sans-serif';g.fillText(rec?'Zeichne Karte … '+Math.round(rec.prog*100)+' %':'Karte entsteht in der ersten Runde',12,120);return}
  const X=mp.map(q=>S.mirror?-q[0]:q[0]),Y=mp.map(q=>-q[1]),x0=Math.min(...X),x1=Math.max(...X),y0=Math.min(...Y),y1=Math.max(...Y),k=Math.min(276/((x1-x0)||1),216/((y1-y0)||1));
  const P=i=>[12+(276-(x1-x0)*k)/2+(X[i]-x0)*k,12+(216-(y1-y0)*k)/2+(Y[i]-y0)*k];
  g.strokeStyle=TH.line;g.lineWidth=5;g.lineJoin='round';g.beginPath();
@@ -186,34 +202,50 @@ function sendFuel(){
  ws.send(JSON.stringify({cmd:'fuel',l:lastCalc.add}));
  flash(lastCalc.add>0?'Boxenstopp: +'+Math.ceil(lastCalc.add)+' L gesendet':'Tanken abgewählt')
 }
-const hist=[];let lf=null,lastLap=null,uses=[];
-function extra(t){
- curTrack=t.track||'';mapStep(t);drawMap(t);drawAlert(t);
+const hist=[];let lf=null,lastLap=null,uses=[],taint=false,greenAt=0,lastKey='',tick=0;
+function extra(t,slow,mid){
+ curTrack=t.track||'';mapStep(t);if(mid)drawMap(t);if(slow)drawAlert(t);
  const U=S.units==='i'?{f:.264172,fu:'gal'}:{f:1,fu:'L'};
  const f=t.flags??4;let fl=['–','#555'];
  if(f&0x10)fl=['Rot','#FF4D4D'];else if(f&1)fl=['Ziel','#fff'];else if(f&0xC108)fl=['Gelb','#FFD400'];else if(f&0x20)fl=['Blau','#4DA3FF'];else if(f&2)fl=['Weiß','#fff'];else if(f&0x404)fl=['Grün',G];
- els.flag.innerHTML=`<div class="fl" style="background:${fl[1]}">${fl[0]}</div>`;
+ if(slow){els.flag.innerHTML=`<div class="fl" style="background:${fl[1]}">${fl[0]}</div>`;const gr=fl[0]==='Grün';if(gr){if(!greenAt)greenAt=Date.now()}else greenAt=0;els.flag.style.visibility=(edit||(fl[0]!=='–'&&(!gr||Date.now()-greenAt<8000)))?'visible':'hidden'}
  const gp=t.gaps||{},gl=(n,x)=>kv(n+(x?' · '+esc(x[0]):''),x?x[1].toFixed(1)+' s':'–');
- els.gap.innerHTML=lab('Abstand (eigene Klasse)')+gl('Vorne',gp.a)+gl('Hinten',gp.b);
+ if(slow)els.gap.innerHTML=lab('Abstand (eigene Klasse)')+gl('Vorne',gp.a)+gl('Hinten',gp.b);
  hist.push([t.throttle,t.brake]);if(hist.length>300)hist.shift();
  const g=$('#cv').getContext('2d');g.clearRect(0,0,300,90);
  [[0,G],[1,R]].forEach(([k,c])=>{g.strokeStyle=c;g.lineWidth=2;g.beginPath();hist.forEach((q,x)=>{const y=88-q[k]*86;x?g.lineTo(x,y):g.moveTo(x,y)});g.stroke()});
  $('#bt').style.height=t.throttle*100+'%';$('#bb').style.height=t.brake*100+'%';$('#bb').style.background=t.abs?A:R;
  $('#gd').style.transform=`translate(${t.latG*40}px,${-t.lonG*40}px)`;$('#gv').textContent=t.latG.toFixed(1)+' / '+t.lonG.toFixed(1)+' G';
- if(t.lap!==lastLap){if(lastLap!==null&&lf!==null&&lf-t.fuel>0){uses.push(lf-t.fuel);if(uses.length>5)uses.shift()}lastLap=t.lap;lf=t.fuel}
+ const key=(t.track||'')+'|'+(t.session||'');if(key!==lastKey){lastKey=key;uses=[];lf=null;lastLap=null;taint=false}
+ if(f&0xC108)taint=true;
+ if(t.lap!==lastLap){if(lastLap!==null&&lf!==null&&lf-t.fuel>0&&!taint){uses.push(lf-t.fuel);if(uses.length>5)uses.shift()}lastLap=t.lap;lf=t.fuel;taint=false}
  const c=fuelCalc(t);lastCalc=c;
- els.fuel.innerHTML=lab('Fuel-Rechner')+kv('Verbrauch / Runde',c.avg?(c.avg*U.f).toFixed(2)+' '+U.fu:'–')+kv('Reicht für',c.avg?(t.fuel/c.avg).toFixed(1)+' Runden':'–')+kv('Extra-Runden','+'+(S.extra||0))+kv('Tanken (Boxenstopp)',c.add===null?'–':(c.add*U.f).toFixed(1)+' '+U.fu,c.add>0?A:G)+`<div style="font-size:12px;color:var(--mut);margin-top:6px">${fmsg||'Strg+Alt+F: Tankmenge setzen · Strg+Alt+↑/↓: Extra-Runden'}</div>`;
+ if(slow)els.fuel.innerHTML=lab('Fuel-Rechner')+kv('Verbrauch / Runde',c.avg?(c.avg*U.f).toFixed(2)+' '+U.fu:'–')+kv('Reicht für',c.avg?(t.fuel/c.avg).toFixed(1)+' Runden':'–')+kv('Extra-Runden','+'+(S.extra||0))+kv('Tanken (Boxenstopp)',c.add===null?'–':(c.add*U.f).toFixed(1)+' '+U.fu,c.add>0?A:G)+`<div style="font-size:12px;color:var(--mut);margin-top:6px">${fmsg||(window.HK?hk(HK.fuel)+': Tankmenge setzen · '+hk(HK.lapsUp)+'/'+hk(HK.lapsDown)+': Extra-Runden':'')}</div>`;
 }
 function demo(s){const r=.5+.45*Math.sin(s/1.3);const D={rpm:r*12000,rpmMax:12000,gear:2+Math.floor(r*4),speed:80+r*140,delta:Math.sin(s/3)*.4,cur:s%100,last:102.69,best:102.104,lap:1+Math.floor(s/25),laps:20,fuel:max0(40-s*.06),throttle:r,fuelMax:60,onPit:false,track:'Demo',yaw:0,pct:(s/90)%1,cars:Array.from({length:8},(_,i)=>[((s/90)+i*.12)%1,i===0,i%3===0?'#FF5A5A':'#5AB0FF',false]),alerts:Math.floor(s/10)%2?[{name:'M. Keller',num:'#77',gap:2.4+Math.sin(s),color:'#FF5A5A'}]:[],brake:max0(Math.sin(s*1.7+2)),gaps:{a:['T. Rossi',.6],b:['K. Aalto',.9]},abs:false,latG:1.6*Math.sin(s*.9),lonG:.8*Math.sin(s*1.7),
  tires:[{t:92,w:12},{t:101,w:14},{t:89,w:9},{t:95,w:10}],
  stand:[['P1','J. Weber','Leader',0],['P2','T. Rossi','+1.2',0],['P3','K. Aalto','+3.9',0],['P4','Du','+5.1',1],['P5','P. Nowak','+6.4',0]],
  rel:[['-1.8','J. Weber','#14',0],['-0.6','T. Rossi','#08',0],['0.0','Du','#27',1],['+0.9','K. Aalto','#52',0],['+2.3','P. Nowak','#33',0]]};D.stand.forEach((r,i)=>r.push(1800+i*430));D.rel.forEach((r,i)=>r.push(2100+i*380));return D}
 const max0=v=>Math.max(0,v);
-let live=null,liveAt=0,ws;
+let live=null,liveAt=0,ws,brAt=0,brErr='',wsOpen=false;
 function connect(){try{ws=new WebSocket('ws://localhost:8765')}catch{return setTimeout(connect,3000)}
- ws.onmessage=e=>{live=JSON.parse(e.data);liveAt=Date.now()};ws.onclose=()=>setTimeout(connect,3000);ws.onerror=()=>ws.close()}
+ ws.onopen=()=>{wsOpen=true;ws.send(JSON.stringify({cmd:'hello',tok:TOK}))};
+ ws.onmessage=e=>{const m=JSON.parse(e.data);brAt=Date.now();if(m.status){brErr=m.err||'';return}live=m;liveAt=Date.now()};
+ ws.onclose=()=>{wsOpen=false;setTimeout(connect,3000)};ws.onerror=()=>ws.close()}
 connect();
-setInterval(()=>{const on=live&&Date.now()-liveAt<2000;$('#st').textContent=on?'● Live (iRacing)':'○ Demo-Daten';const d=on?live:demo(performance.now()/1000);if(on&&S.auto&&d.session&&S.p[d.session]&&d.session!==S.active)prof(d.session);render(d);extra(d);if(on){if(d.onPit&&!wasPit&&S.autoFuel)sendFuel();wasPit=!!d.onPit}},50);
+const hk=s=>String(s).replace('Control','Strg').replace('PageUp','Bild↑').replace('PageDown','Bild↓');
+function diag(on,d){
+ $('#dg').textContent=['Bridge: '+(wsOpen&&Date.now()-brAt<3000?'verbunden':'nicht erreichbar'),'iRacing: '+(on?'Daten kommen an':'keine Daten'),'Im Auto: '+(on?(d.inCar===false?'nein':'ja'):'–'),brErr?'Fehler: '+brErr:'','Version: '+(window.HOST?HOST.v:'–'),window.HOST?'Log: '+HOST.log:''].filter(Boolean).join('\n');
+ if(window.HK)$('#hk').textContent=`${hk(HK.edit)}: Bearbeiten · ${hk(HK.quit)}: Beenden · ${hk(HK.fuel)}: Tanken · ${hk(HK.lapsUp)}/${hk(HK.lapsDown)}: Extra-Runden`}
+setInterval(()=>{
+ tick++;const slow=tick%5===0,mid=tick%2===0;
+ const on=live&&Date.now()-liveAt<2000,d=on?live:demo(performance.now()/1000);
+ $('#stage').style.visibility=(!OVL||edit||(on&&(S.hideIdle===0||d.inCar!==false)))?'visible':'hidden';
+ if(slow){$('#st').textContent=on?'● Live (iRacing)':'○ Demo-Daten';diag(on,d)}
+ if(on&&S.auto&&d.session&&S.p[d.session]&&d.session!==S.active)prof(d.session);
+ render(d,slow,mid);extra(d,slow,mid);
+ if(on){if(d.onPit&&!wasPit&&S.autoFuel&&d.session==='Race')sendFuel();wasPit=!!d.onPit}
+},50);
 if(location.search.includes('overlay')){document.body.classList.add('overlay');$('#ov').checked=true}
 layout();
 </script>
