@@ -4,14 +4,51 @@
   "description": "iRacing HUD Overlay",
   "author": "iRacing HUD",
   "main": "main.js",
-  "scripts": { "start": "electron .", "dist": "electron-builder --win --publish never" },
-  "devDependencies": { "electron": "^33.0.0", "electron-builder": "^25.0.0" },
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win --publish never"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0"
+  },
   "build": {
     "appId": "de.iracinghud.app",
     "productName": "iRacing HUD",
-    "files": ["main.js", "preload.js", "web/**", "build/icon.png"],
-    "extraResources": [{ "from": "bridge/iracing_bridge.exe", "to": "iracing_bridge.exe" }],
-    "win": { "target": "nsis", "icon": "build/icon.png" },
-    "nsis": { "oneClick": true, "perMachine": false, "createDesktopShortcut": true, "runAfterFinish": true }
+    "files": [
+      "main.js",
+      "preload.js",
+      "web/**",
+      "build/icon.png"
+    ],
+    "extraResources": [
+      {
+        "from": "bridge/iracing_bridge.exe",
+        "to": "iracing_bridge.exe"
+      }
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "createDesktopShortcut": "always",
+      "createStartMenuShortcut": true,
+      "shortcutName": "iRacing HUD",
+      "runAfterFinish": true
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "Kretsche1991",
+        "repo": "Racing-UI",
+        "releaseType": "release"
+      }
+    ]
+  },
+  "dependencies": {
+    "electron-updater": "^6.3.0"
   }
 }
