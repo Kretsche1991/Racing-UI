@@ -5,6 +5,8 @@ on:
     branches:
       - main
       - master
+    paths-ignore:
+      - '**.md'
 permissions:
   contents: write
 jobs:
@@ -18,8 +20,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - run: pip install pyirsdk websockets pyinstaller
-      - run: pyinstaller --onefile --noconsole --name iracing_bridge --distpath bridge --workpath pyi-build --specpath pyi-build bridge/iracing_bridge.py
+      - name: Syntaxpruefung
+        run: |
+          python -m py_compile bridge/iracing_bridge.py
+          node --check main.js
+          node --check preload.js
+          node check.js
+      - run: pip install "pyirsdk>=1.3.5,<2" "websockets>=13,<14" "pyinstaller>=6.10,<7"
+      - run: pyinstaller --onedir --noconsole --name iracing_bridge --distpath bridge-dist --workpath pyi-build --specpath pyi-build bridge/iracing_bridge.py
       - run: npm install
       - run: npm version 1.0.${{ github.run_number }} --no-git-tag-version
       - run: npx electron-builder --win --publish always
