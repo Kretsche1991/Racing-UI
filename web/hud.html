@@ -193,8 +193,8 @@ function extra(t){
  const f=t.flags??4;let fl=['–','#555'];
  if(f&0x10)fl=['Rot','#FF4D4D'];else if(f&1)fl=['Ziel','#fff'];else if(f&0xC108)fl=['Gelb','#FFD400'];else if(f&0x20)fl=['Blau','#4DA3FF'];else if(f&2)fl=['Weiß','#fff'];else if(f&0x404)fl=['Grün',G];
  els.flag.innerHTML=`<div class="fl" style="background:${fl[1]}">${fl[0]}</div>`;
- const i=t.rel.findIndex(r=>r[3]),a=t.rel[i-1],b=t.rel[i+1];
- els.gap.innerHTML=lab('Abstand')+kv('Vorne',a?esc(a[0]).replace('-','')+' s':'–')+kv('Hinten',b?esc(b[0]).replace('+','')+' s':'–');
+ const gp=t.gaps||{},gl=(n,x)=>kv(n+(x?' · '+esc(x[0]):''),x?x[1].toFixed(1)+' s':'–');
+ els.gap.innerHTML=lab('Abstand (eigene Klasse)')+gl('Vorne',gp.a)+gl('Hinten',gp.b);
  hist.push([t.throttle,t.brake]);if(hist.length>300)hist.shift();
  const g=$('#cv').getContext('2d');g.clearRect(0,0,300,90);
  [[0,G],[1,R]].forEach(([k,c])=>{g.strokeStyle=c;g.lineWidth=2;g.beginPath();hist.forEach((q,x)=>{const y=88-q[k]*86;x?g.lineTo(x,y):g.moveTo(x,y)});g.stroke()});
@@ -204,7 +204,7 @@ function extra(t){
  const c=fuelCalc(t);lastCalc=c;
  els.fuel.innerHTML=lab('Fuel-Rechner')+kv('Verbrauch / Runde',c.avg?(c.avg*U.f).toFixed(2)+' '+U.fu:'–')+kv('Reicht für',c.avg?(t.fuel/c.avg).toFixed(1)+' Runden':'–')+kv('Extra-Runden','+'+(S.extra||0))+kv('Tanken (Boxenstopp)',c.add===null?'–':(c.add*U.f).toFixed(1)+' '+U.fu,c.add>0?A:G)+`<div style="font-size:12px;color:var(--mut);margin-top:6px">${fmsg||'Strg+Alt+F: Tankmenge setzen · Strg+Alt+↑/↓: Extra-Runden'}</div>`;
 }
-function demo(s){const r=.5+.45*Math.sin(s/1.3);const D={rpm:r*12000,rpmMax:12000,gear:2+Math.floor(r*4),speed:80+r*140,delta:Math.sin(s/3)*.4,cur:s%100,last:102.69,best:102.104,lap:1+Math.floor(s/25),laps:20,fuel:max0(40-s*.06),throttle:r,fuelMax:60,onPit:false,track:'Demo',yaw:0,pct:(s/90)%1,cars:Array.from({length:8},(_,i)=>[((s/90)+i*.12)%1,i===0,i%3===0?'#FF5A5A':'#5AB0FF',false]),alerts:Math.floor(s/10)%2?[{name:'M. Keller',num:'#77',gap:2.4+Math.sin(s),color:'#FF5A5A'}]:[],brake:max0(Math.sin(s*1.7+2)),abs:false,latG:1.6*Math.sin(s*.9),lonG:.8*Math.sin(s*1.7),
+function demo(s){const r=.5+.45*Math.sin(s/1.3);const D={rpm:r*12000,rpmMax:12000,gear:2+Math.floor(r*4),speed:80+r*140,delta:Math.sin(s/3)*.4,cur:s%100,last:102.69,best:102.104,lap:1+Math.floor(s/25),laps:20,fuel:max0(40-s*.06),throttle:r,fuelMax:60,onPit:false,track:'Demo',yaw:0,pct:(s/90)%1,cars:Array.from({length:8},(_,i)=>[((s/90)+i*.12)%1,i===0,i%3===0?'#FF5A5A':'#5AB0FF',false]),alerts:Math.floor(s/10)%2?[{name:'M. Keller',num:'#77',gap:2.4+Math.sin(s),color:'#FF5A5A'}]:[],brake:max0(Math.sin(s*1.7+2)),gaps:{a:['T. Rossi',.6],b:['K. Aalto',.9]},abs:false,latG:1.6*Math.sin(s*.9),lonG:.8*Math.sin(s*1.7),
  tires:[{t:92,w:12},{t:101,w:14},{t:89,w:9},{t:95,w:10}],
  stand:[['P1','J. Weber','Leader',0],['P2','T. Rossi','+1.2',0],['P3','K. Aalto','+3.9',0],['P4','Du','+5.1',1],['P5','P. Nowak','+6.4',0]],
  rel:[['-1.8','J. Weber','#14',0],['-0.6','T. Rossi','#08',0],['0.0','Du','#27',1],['+0.9','K. Aalto','#52',0],['+2.3','P. Nowak','#33',0]]};D.stand.forEach((r,i)=>r.push(1800+i*430));D.rel.forEach((r,i)=>r.push(2100+i*380));return D}
