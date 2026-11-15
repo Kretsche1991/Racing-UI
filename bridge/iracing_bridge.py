@@ -14,11 +14,14 @@ def snap():
     cars = {d['CarIdx']: d for d in di['Drivers'] if not d.get('IsSpectator')}
     pos, f2, pct = ir['CarIdxClassPosition'], ir['CarIdxF2Time'], ir['CarIdxLapDistPct']
 
-    order = sorted((i for i in cars if pos[i] > 0), key=lambda i: pos[i])
+    cid = cars[me].get('CarClassID')
+    ccars = [i for i in cars if cars[i].get('CarClassID') == cid]  # nur die eigene Klasse
+    order = sorted((i for i in ccars if pos[i] > 0), key=lambda i: pos[i])
+    base = f2[order[0]] if order else 0
     k = order.index(me) if me in order else 0
     lo = max(0, min(k - 2, len(order) - 5))
     stand = [[f'P{pos[i]}', cars[i]['UserName'],
-              'Leader' if pos[i] == 1 else f'+{f2[i]:.1f}', i == me, cars[i]['IRating']] for i in order[lo:lo + 5]]
+              'Leader' if pos[i] == 1 else f'+{f2[i] - base:.1f}', i == me, cars[i]['IRating']] for i in order[lo:lo + 5]]
 
     est = di['DriverCarEstLapTime']
     diffs = [((pct[i] - pct[me] + .5) % 1 - .5, i) for i in cars if i != me and pct[i] >= 0]
@@ -38,6 +41,19 @@ def snap():
     total = ir['SessionLapsTotal']
     st = ir['SessionInfo']['Sessions'][ir['SessionNum']]['SessionType']
     sess = 'Race' if st == 'Race' else 'Qualify' if 'Qualify' in st else 'Practice'
+    def pick(x):
+        return None if x is None else [cars[x[0]]['UserName'], max(0, x[1])]
+    if sess == 'Race' and me in order:  # Rennen: Zeitabstand ueber die Klassenposition
+        j = order.index(me)
+        ga = (order[j - 1], f2[me] - f2[order[j - 1]]) if j > 0 else None
+        gb = (order[j + 1], f2[order[j + 1]] - f2[me]) if j + 1 < len(order) else None
+    else:  # Training/Quali: naechstes Auto der eigenen Klasse auf der Strecke
+        same = [x for x in diffs if x[1] in ccars]
+        fa = min((x for x in same if x[0] > 0), key=lambda x: x[0], default=None)
+        fb = min((x for x in same if x[0] < 0), key=lambda x: -x[0], default=None)
+        ga = (fa[1], fa[0] * est) if fa else None
+        gb = (fb[1], -fb[0] * est) if fb else None
+    gaps = {'a': pick(ga), 'b': pick(gb)}
     return {'rpm': ir['RPM'], 'rpmMax': di['DriverCarRedLine'], 'gear': ir['Gear'], 'speed': ir['Speed'] * 3.6,
             'delta': ir['LapDeltaToBestLap'], 'cur': ir['LapCurrentLapTime'], 'last': ir['LapLastLapTime'],
             'best': ir['LapBestLapTime'], 'lap': ir['Lap'], 'laps': total if total < 1000 else 0,
@@ -45,7 +61,7 @@ def snap():
             'timeRemain': ir['SessionTimeRemain'], 'onPit': bool(ir['OnPitRoad']), 'throttle': ir['Throttle'], 'brake': ir['Brake'],
             'abs': bool(ir['BrakeABSactive']), 'latG': ir['LatAccel'] / 9.81, 'lonG': ir['LongAccel'] / 9.81,
             'flags': ir['SessionFlags'], 'session': sess,
-            'alerts': alerts, 'cars': cars_out, 'track': ir['WeekendInfo']['TrackName'], 'yaw': ir['Yaw'], 'pct': ir['LapDistPct'], 'tires': tires, 'stand': stand, 'rel': rel}
+            'alerts': alerts, 'gaps': gaps, 'cars': cars_out, 'track': ir['WeekendInfo']['TrackName'], 'yaw': ir['Yaw'], 'pct': ir['LapDistPct'], 'tires': tires, 'stand': stand, 'rel': rel}
 
 
 def handle(m):
