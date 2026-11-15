@@ -1,11 +1,11 @@
-# iRacing HUD
-
-Installer ohne eigene Entwicklungstools bauen (GitHub):
-1. Kostenloses Konto auf github.com, neues Repository anlegen, diesen Ordnerinhalt hochladen
-   (inkl. des versteckten Ordners .github).
-2. Reiter "Actions" > "Installer bauen" > "Run workflow".
-3. Nach ca. 5 Minuten unter "Artifacts" iRacingHUD-Setup herunterladen, entpacken, Setup.exe ausfuehren.
-
-Bedienung: iRacing im Fenster- oder Rahmenlos-Modus starten (nicht Vollbild exklusiv).
-Strg+Alt+E = Layout bearbeiten (Panels ziehen, Groesse/Farbe), Strg+Alt+Q = Beenden. Tray-Symbol hat dasselbe Menue.
-Windows zeigt beim ersten Start evtl. eine SmartScreen-Warnung (unsigniert): "Weitere Informationen" > "Trotzdem ausfuehren".
+iRacing HUD
+Installer bauen (GitHub)
+Dateien in ein oeffentliches GitHub-Repository hochladen (inkl. des Ordners .github).
+Jede Aenderung startet automatisch den Bau ("Actions"). Fertige Installer liegen unter "Releases".
+Setup.exe einmal installieren. Danach aktualisiert sich das Programm selbst.
+Bedienung
+Standard-Tastenkuerzel: Strg+Alt+E Bearbeiten, Strg+Alt+Q Beenden, Strg+Alt+F Tankmenge setzen,
+Strg+Alt+Bild hoch/runter Extra-Runden. Aenderbar ueber Tray-Menue > "Tastenkuerzel aendern" (Datei hotkeys.json, Neustart noetig).
+Das Tray-Symbol (neben der Uhr) bietet ausserdem Bildschirmwahl, Autostart, Update-Suche und den Log-Ordner.
+Im Bearbeiten-Modus zeigt das Einstellungsfenster unten den Verbindungsstatus (Diagnose).
+iRacing im Fenster- oder Rahmenlos-Modus starten (nicht Vollbild exklusiv).
