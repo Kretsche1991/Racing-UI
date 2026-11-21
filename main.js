@@ -107,6 +107,10 @@ app.whenReady().then(() => {
   });
   win.setAlwaysOnTop(true, 'screen-saver');
   win.setIgnoreMouseEvents(true, { forward: true });
+  // Overlay regelmaessig wieder nach ganz oben holen (ohne Fokus), falls ein anderes Fenster es verdraengt
+  setInterval(() => {
+    if (win && !win.isDestroyed()) { win.setAlwaysOnTop(true, 'screen-saver'); win.moveTop(); }
+  }, 1500);
   ipcMain.on('edit', (_e, v) => applyEditing(!!v));
   const keys = registerKeys();
   win.webContents.on('did-finish-load', () => js(
